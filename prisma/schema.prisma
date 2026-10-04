@@ -1,0 +1,102 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          Int          @id @default(autoincrement())
+  username    String       @unique
+  displayName String
+  createdAt   DateTime     @default(now())
+  submissions Submission[]
+}
+
+model Problem {
+  id            Int             @id @default(autoincrement())
+  slug          String          @unique
+  title         String
+  description   String
+  timeLimitMs   Int             @default(2000)
+  memoryLimitMb Int             @default(256)
+  isPublic      Boolean         @default(true)
+  createdAt     DateTime        @default(now())
+  testCases     TestCase[]
+  submissions   Submission[]
+  contests      ContestProblem[]
+}
+
+model TestCase {
+  id             Int        @id @default(autoincrement())
+  problemId      Int
+  problem        Problem    @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  input          String
+  expectedOutput String
+  isSample       Boolean    @default(false)
+  position       Int        @default(0)
+  results        TestResult[]
+
+  @@index([problemId, position])
+}
+
+model Submission {
+  id         Int       @id @default(autoincrement())
+  problemId  Int
+  problem    Problem   @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  userId     Int
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contestId  Int?
+  contest    Contest?  @relation(fields: [contestId], references: [id], onDelete: SetNull)
+  language   String
+  code       String
+  status     String    @default("queued")
+  verdict    String    @default("pending")
+  maxTimeMs  Int       @default(0)
+  judgeLog   String?
+  createdAt  DateTime  @default(now())
+  judgedAt   DateTime?
+  results    TestResult[]
+
+  @@index([status, id])
+  @@index([userId, problemId])
+  @@index([contestId])
+}
+
+model TestResult {
+  id           Int        @id @default(autoincrement())
+  submissionId Int
+  submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  testCaseId   Int
+  testCase     TestCase   @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
+  verdict      String
+  timeMs       Int        @default(0)
+  message      String?
+
+  @@index([submissionId])
+}
+
+model Contest {
+  id            Int              @id @default(autoincrement())
+  name          String
+  slug          String           @unique
+  startsAt      String
+  endsAt        String
+  freezeMinutes Int              @default(0)
+  createdAt     DateTime         @default(now())
+  problems      ContestProblem[]
+  submissions   Submission[]
+}
+
+model ContestProblem {
+  id        Int     @id @default(autoincrement())
+  contestId Int
+  contest   Contest @relation(fields: [contestId], references: [id], onDelete: Cascade)
+  problemId Int
+  problem   Problem @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  order     Int     @default(0)
+
+  @@unique([contestId, problemId])
+}
